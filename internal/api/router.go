@@ -1,10 +1,12 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/RidmaTP/web-analyzer/configs"
+	"github.com/RidmaTP/web-analyzer/internal/api/handlers"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 func Router(engine *gin.Engine) {
@@ -21,5 +23,7 @@ func routes(rg *gin.RouterGroup) {
 			"status":  "success",
 			"version": configs.APP_VERSION})
 	})
+
+	rg.GET("/result" , handlers.GetResultsHandler)
 
 }

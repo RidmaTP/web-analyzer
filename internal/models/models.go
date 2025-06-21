@@ -15,3 +15,7 @@ type LinksData struct {
 	Count int
 	Links []string
 }
+
+type Input struct {
+	Url string `json:"url"`
+}
