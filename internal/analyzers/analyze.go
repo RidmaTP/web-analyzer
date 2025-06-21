@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 
-	fetchers "github.com/RidmaTP/web-analyzer/internal/fetcher"
+	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
 	"golang.org/x/net/html"
 )
 
 func Analyze(url string) error {
-	ioReader, err := fetchers.FetchBody(url)
+	ioReader, err := fetcher.FetchBody(url)
 	if err != nil {
 		return err
 	}
@@ -32,8 +32,8 @@ func Analyze(url string) error {
 		}
 		token := tokenizer.Token()
 		if output.Title == "" {
-			t, text := FindTitle(tokenType, token, inTitle)
-			inTitle = t
+			isInTitle, text := FindTitle(tokenType, token, inTitle)
+			inTitle = isInTitle
 			output.Title = text
 		}
 
