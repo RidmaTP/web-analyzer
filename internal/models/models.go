@@ -1,6 +1,6 @@
 package models
 
-type Result struct {
+type Output struct {
 	Version       string
 	Title         string
 	Headers       map[string]int
@@ -14,4 +14,8 @@ type Result struct {
 type LinksData struct {
 	Count int
 	Links []string
+}
+
+type Input struct {
+	Url string `json:"url"`
 }
