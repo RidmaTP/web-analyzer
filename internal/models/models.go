@@ -1,6 +1,6 @@
 package models
 
-type Result struct {
+type Output struct {
 	Version       string
 	Title         string
 	Headers       map[string]int
