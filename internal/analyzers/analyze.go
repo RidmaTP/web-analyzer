@@ -34,7 +34,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 	tokenizer := html.NewTokenizer(ioReader)
 
 	var inTitle bool
-
+	loginFlags := LoginFlags{}
 	for {
 		tokenType := tokenizer.Next()
 		if tokenType == html.ErrorToken {
@@ -63,6 +63,10 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 		}
 
 		err = a.FindLinks(tokenType, token, url)
+		if err != nil {
+			return err
+		}
+		err = a.FindIfLogin(tokenType, token, &loginFlags)
 		if err != nil {
 			return err
 		}
@@ -159,6 +163,64 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 						return err
 					}
 					a.Stream <- *jsonStr
+				}
+			}
+		}
+	}
+	return nil
+}
+func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
+	if tokenType == html.StartTagToken {
+		tokenData := token.Data
+
+		if tokenData == "form" {
+			loginFlags.IsForm = true
+			loginFlags.InForm = true
+			return nil
+		} else if tokenData == "input" {
+			for _, attr := range token.Attr {
+				if attr.Key == "type" {
+					if attr.Val == "password" {
+						loginFlags.IsPasswordField = true
+						return nil
+					} else if attr.Val == "email" || attr.Val == "text" {
+						loginFlags.IsTextField = true
+						return nil
+					} else if attr.Val == "submit" {
+						loginFlags.IsLoginButton = true
+						return nil
+					}
+				}
+			}
+		} else if tokenData == "button" {
+			for _, attr := range token.Attr {
+				if attr.Key == "type" {
+					if attr.Val == "submit" {
+						loginFlags.InButton = true
+						return nil
+					}
+				}
+			}
+		}
+	} else if tokenType == html.EndTagToken {
+		tokenData := token.Data
+		if tokenData == "form" {
+			return nil
+
+		} else if tokenData == "button" {
+			if loginFlags.InForm && loginFlags.InButton {
+				loginFlags.InButton = false
+				return nil
+			}
+		}
+	} else if tokenType == html.TextToken {
+		if loginFlags.InButton && loginFlags.InForm {
+			loginKeywords := []string{"login", "log in", "sign in", "signin", "submit", "access"}
+			btnText := strings.ToLower(strings.ReplaceAll(token.Data, " ", ""))
+			for _, keyword := range loginKeywords {
+				if btnText == keyword {
+					loginFlags.IsLoginButton = true
+					return nil
 				}
 			}
 		}
