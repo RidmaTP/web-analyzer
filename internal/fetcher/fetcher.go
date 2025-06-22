@@ -4,9 +4,17 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 )
 
-func FetchBody(url string) (io.ReadCloser, error) {
+type BodyFetcher interface {
+	FetchBody(url string) (io.ReadCloser, error)
+}
+
+type Fetcher struct {
+}
+
+func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -19,4 +27,12 @@ func FetchBody(url string) (io.ReadCloser, error) {
 		return nil, errors.New(string(resp))
 	}
 	return resp.Body, nil
+}
+
+type MockFetcher struct {
+	ResponseBody string
+}
+
+func (f *MockFetcher) FetchBody(url string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader(f.ResponseBody)), nil
 }
