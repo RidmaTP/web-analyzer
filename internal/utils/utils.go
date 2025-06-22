@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/RidmaTP/web-analyzer/internal/models"
@@ -33,3 +34,17 @@ func ErrStreamObj(errStr string) *string {
 	return &errString
 }
 
+func IsExternalLink(link, baseUrl string) bool {
+	u, err := url.Parse(link)
+	if err != nil {
+		return false
+	}
+	bu, err := url.Parse(baseUrl)
+	if err != nil {
+		return false
+	}
+	if u.Host == "" {
+		return false
+	}
+	return !strings.Contains(u.Host, bu.Host)
+}

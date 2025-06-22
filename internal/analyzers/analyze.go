@@ -62,6 +62,11 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 
+		err = a.FindLinks(tokenType, token, url)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -131,6 +136,31 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 				return err
 			}
 			a.Stream <- *jsonStr
+		}
+	}
+	return nil
+}
+
+func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string) error {
+	if tokenType == html.StartTagToken {
+		tokenData := token.Data
+		if tokenData == "a" {
+			for _, attr := range token.Attr {
+				if attr.Key == "href" {
+					if utils.IsExternalLink(attr.Val, baseUrl) {
+						a.Output.ExternalLinks.Count++
+						a.Output.ExternalLinks.Links = append(a.Output.ExternalLinks.Links, attr.Val)
+					} else {
+						a.Output.InternalLinks.Count++
+						a.Output.InternalLinks.Links = append(a.Output.InternalLinks.Links, attr.Val)
+					}
+					jsonStr, err := utils.JsonToText(a.Output)
+					if err != nil {
+						return err
+					}
+					a.Stream <- *jsonStr
+				}
+			}
 		}
 	}
 	return nil
