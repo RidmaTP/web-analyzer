@@ -7,6 +7,7 @@ import (
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
+	"github.com/RidmaTP/web-analyzer/internal/utils"
 	"golang.org/x/net/html"
 )
 
@@ -36,10 +37,14 @@ func Analyze(url string, f fetcher.BodyFetcher) error {
 			inTitle = isInTitle
 			output.Title = text
 		}
+		if output.Version == "" {
+			output.Version = FindHTMLVersion(tokenType, token)
+		}
 
 	}
 
 	fmt.Println("Page title:", output.Title)
+	fmt.Println("Page Version:", output.Version)
 	return nil
 }
 
@@ -57,4 +62,21 @@ func FindTitle(tokenType html.TokenType, token html.Token, inTitle bool) (bool, 
 		}
 	}
 	return inTitle, ""
+}
+
+func FindHTMLVersion(tokenType html.TokenType, token html.Token) string {
+	if tokenType == html.DoctypeToken {
+		doctype := token.Data
+
+		if doctype == "html" {
+			return "HTML5"
+		} else if utils.ContainsIgnoreCase(doctype, "XHTML") {
+			return "XHTML"
+		} else if utils.ContainsIgnoreCase(doctype, "HTML 4.01") {
+			return "HTML 4.01"
+		} else {
+			return doctype
+		}
+	}
+	return ""
 }

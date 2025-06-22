@@ -8,7 +8,7 @@ import (
 )
 
 type BodyFetcher interface {
-	FetchBody(string) (io.ReadCloser, error)
+	FetchBody(url string) (io.ReadCloser, error)
 }
 
 type Fetcher struct {
@@ -30,8 +30,9 @@ func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 }
 
 type MockFetcher struct {
+	ResponseBody string
 }
 
-func (f *MockFetcher) FetchBody(content string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader(content)), nil
+func (f *MockFetcher) FetchBody(url string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader(f.ResponseBody)), nil
 }
