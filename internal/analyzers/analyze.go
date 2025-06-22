@@ -57,7 +57,10 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 
-	
+		err = a.FindHeaderCount(tokenType, token)
+		if err != nil {
+			return err
+		}
 
 	}
 
@@ -115,3 +118,20 @@ func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Toke
 	return nil
 }
 
+func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Token) error {
+	if a.Output.Headers == nil {
+		a.Output.Headers = make(map[string]int)
+	}
+	if tokenType == html.StartTagToken {
+		header := token.Data
+		if header == "h1" || header == "h2" || header == "h3" || header == "h4" || header == "h5" || header == "h6" {
+			a.Output.Headers[header]++
+			jsonStr, err := utils.JsonToText(a.Output)
+			if err != nil {
+				return err
+			}
+			a.Stream <- *jsonStr
+		}
+	}
+	return nil
+}

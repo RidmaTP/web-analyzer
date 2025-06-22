@@ -2,12 +2,13 @@ package analyzers
 
 import (
 	"encoding/json"
+	//"fmt"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
-	"golang.org/x/net/html"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/html"
 )
 
 func Test_Analyze(t *testing.T) {
@@ -231,7 +232,75 @@ func TestBodyAnalyzer_FindHTMLVersion(t *testing.T) {
 				default:
 					t.Error("expected message on Stream, but none found")
 				}
-			} 
+			}
+		})
+	}
+}
+
+func TestBodyAnalyzer_FindHeaderCount(t *testing.T) {
+	tests := []struct {
+		name          string
+		tokenType     html.TokenType
+		token         html.Token
+		initialData   map[string]int
+		expected      map[string]int
+		wantStreamMsg bool
+	}{
+		{
+			name:          "Counting h1",
+			tokenType:     html.StartTagToken,
+			token:         html.Token{Data: "h1"},
+			expected:      map[string]int{"h1": 1},
+			wantStreamMsg: true,
+		},
+		{
+			name:      "Non-header tag",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "div"},
+			expected:  map[string]int{},
+		},
+		{
+			name:      "Non-start tag token",
+			tokenType: html.EndTagToken,
+			token:     html.Token{Data: "h2"},
+			expected:  map[string]int{},
+		},
+		{
+			name:          "Multiple headers count",
+			tokenType:     html.StartTagToken,
+			token:         html.Token{Data: "h3"},
+			initialData:   map[string]int{"h3": 2},
+			expected:      map[string]int{"h3": 3},
+			wantStreamMsg: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := make(chan string, 1)
+			ba := &BodyAnalyzer{
+				Output: models.Output{
+					Headers: tt.initialData,
+				},
+				Stream: stream,
+			}
+
+			err := ba.FindHeaderCount(tt.tokenType, tt.token)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expected, ba.Output.Headers)
+
+			if tt.wantStreamMsg {
+				select {
+				case msg := <-stream:
+					var out models.Output
+					err := json.Unmarshal([]byte(msg), &out)
+					assert.NoError(t, err)
+					assert.Equal(t, tt.expected, ba.Output.Headers)
+				default:
+					assert.Fail(t, "expected message on Stream, but none found")
+				}
+			}
 		})
 	}
 }
