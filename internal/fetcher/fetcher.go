@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strings"
 )
 
 type BodyFetcher interface {
@@ -29,10 +28,3 @@ func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-type MockFetcher struct {
-	ResponseBody string
-}
-
-func (f *MockFetcher) FetchBody(url string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader(f.ResponseBody)), nil
-}

@@ -18,6 +18,7 @@ func Test_Analyze(t *testing.T) {
 		wantTitle   string
 		wantVersion string
 		expectErr   bool
+		forceErr    bool
 	}{
 		{
 			name: "Basic HTML5 page",
@@ -76,6 +77,84 @@ func Test_Analyze(t *testing.T) {
 				}
 				if out.Version != tt.wantVersion {
 					t.Errorf("expected version %q, got %q", tt.wantVersion, out.Version)
+				}
+			}
+		})
+	}
+}
+func Test_Analyze_Err(t *testing.T) {
+	tests := []struct {
+		name            string
+		html            string
+		expectErr       bool
+		forceErrFetcher bool
+		forceErrReader  bool
+	}{
+		{
+			name: "Forcing Fetcher error",
+			html: `
+				<!DOCTYPE html>
+				<html>
+					<head>
+						<title>Test Page</title>
+					</head>
+					<body>
+						<h1>Welcome</h1>
+					</body>
+				</html>
+			`,
+			expectErr:       true,
+			forceErrFetcher: true,
+		},
+		{
+			name: "Forcing Fetcher error",
+			html: `
+				<!DOCTYPE html>
+				<html>
+					<head>
+						<title>Test Page</title>
+					</head>
+					<body>
+						<h1>Welcome</h1>
+					</body>
+				</html>
+			`,
+			expectErr:      true,
+			forceErrReader: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ba := BodyAnalyzer{
+				Fetcher: &fetcher.MockFetcher{
+					ResponseBody:   tt.html,
+					ForceErr:       tt.forceErrFetcher,
+					ForceReaderErr: tt.forceErrReader,
+				},
+				Stream: make(chan string, 10),
+				Output: models.Output{},
+			}
+
+			err := ba.Analyze("")
+			assert.Equal(t, tt.expectErr, err != nil)
+
+			close(ba.Stream)
+
+			var lastMsg string
+			for msg := range ba.Stream {
+				lastMsg = msg
+			}
+
+			if lastMsg == "" && !tt.expectErr {
+				t.Fatal("expected msg from stream, got none")
+			}
+
+			var out models.Output
+			if lastMsg != "" {
+				err = json.Unmarshal([]byte(lastMsg), &out)
+				if err != nil {
+					t.Fatalf("failed to unmarshal last message: %v", err)
 				}
 			}
 		})
