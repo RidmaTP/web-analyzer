@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	//"errors"
 	"fmt"
 	"net/http"
 
@@ -29,15 +30,21 @@ func GetResultsHandler(c *gin.Context) {
 		Stream:  make(chan string, 20),
 		Output:  models.Output{},
 	}
+	errChan := make(chan error)
 	go func() {
 		defer close(a.Stream)
 		err = a.Analyze(input.Url)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
-		}
+		errChan <- err
 	}()
 	for {
 		select {
+		case err := <-errChan:
+			if err != nil {
+				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(err.Error()))
+				c.Writer.Flush()
+
+				return
+			}
 		case <-ctx.Done():
 			fmt.Println("Client disconnected")
 			return

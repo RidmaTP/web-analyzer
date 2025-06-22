@@ -72,7 +72,7 @@ func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inT
 				a.Output.Title = trimmed
 				jsonStr, err := utils.JsonToText(a.Output)
 				if err != nil {
-					return inTitle, nil
+					return inTitle, err
 				}
 				a.Stream <- *jsonStr
 				return inTitle, nil
