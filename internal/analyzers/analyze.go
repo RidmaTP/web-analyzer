@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
@@ -11,8 +12,14 @@ import (
 	"golang.org/x/net/html"
 )
 
-func Analyze(url string, f fetcher.BodyFetcher) error {
-	ioReader, err := f.FetchBody(url)
+type BodyAnalyzer struct {
+	Fetcher fetcher.BodyFetcher
+	Stream  chan string
+	Output  models.Output
+}
+
+func (a *BodyAnalyzer) Analyze(url string) error {
+	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
 		return err
 	}
@@ -20,7 +27,6 @@ func Analyze(url string, f fetcher.BodyFetcher) error {
 	tokenizer := html.NewTokenizer(ioReader)
 
 	var inTitle bool
-	output := models.Output{}
 
 	for {
 		tokenType := tokenizer.Next()
@@ -32,51 +38,72 @@ func Analyze(url string, f fetcher.BodyFetcher) error {
 			return errors.New("error tokenzing html : " + err.Error())
 		}
 		token := tokenizer.Token()
-		if output.Title == "" {
-			isInTitle, text := FindTitle(tokenType, token, inTitle)
-			inTitle = isInTitle
-			output.Title = text
+
+		isInTitle, err := a.FindTitle(tokenType, token, inTitle)
+		if err != nil {
+			return err
 		}
-		if output.Version == "" {
-			output.Version = FindHTMLVersion(tokenType, token)
+		inTitle = isInTitle
+
+		err = a.FindHTMLVersion(tokenType, token)
+		if err != nil {
+			return err
 		}
 
 	}
 
-	fmt.Println("Page title:", output.Title)
-	fmt.Println("Page Version:", output.Version)
+	fmt.Println("Page title:", a.Output.Title)
+	fmt.Println("Page Version:", a.Output.Version)
 	return nil
 }
 
-func FindTitle(tokenType html.TokenType, token html.Token, inTitle bool) (bool, string) {
+func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inTitle bool) (bool, error) {
 	if token.Data == "title" {
 		if tokenType == html.StartTagToken {
-			return true, ""
+			return true, nil
 		} else if tokenType == html.EndTagToken {
-			return false, ""
+			return false, nil
 		}
 	}
 	if tokenType == html.TextToken {
 		if inTitle {
-			return inTitle, string(token.Data)
+			trimmed := strings.TrimSpace(string(token.Data))
+			if trimmed != "" {
+				a.Output.Title = trimmed
+				jsonStr, err := utils.JsonToText(a.Output)
+				if err != nil {
+					return inTitle, nil
+				}
+				a.Stream <- *jsonStr
+				return inTitle, nil
+			}
 		}
 	}
-	return inTitle, ""
+	return inTitle, nil
 }
 
-func FindHTMLVersion(tokenType html.TokenType, token html.Token) string {
+func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Token) error {
+	version := ""
 	if tokenType == html.DoctypeToken {
 		doctype := token.Data
 
 		if doctype == "html" {
-			return "HTML5"
+			version = "HTML5"
 		} else if utils.ContainsIgnoreCase(doctype, "XHTML") {
-			return "XHTML"
+			version = "XHTML"
 		} else if utils.ContainsIgnoreCase(doctype, "HTML 4.01") {
-			return "HTML 4.01"
+			version = "HTML 4.01"
 		} else {
-			return doctype
+			version = doctype
 		}
 	}
-	return ""
+	if version != "" {
+		a.Output.Version = version
+		jsonStr, err := utils.JsonToText(a.Output)
+		if err != nil {
+			return err
+		}
+		a.Stream <- *jsonStr
+	}
+	return nil
 }

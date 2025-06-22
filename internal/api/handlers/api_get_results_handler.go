@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/RidmaTP/web-analyzer/internal/analyzers"
@@ -16,11 +17,38 @@ func GetResultsHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
 	}
-	f := fetcher.Fetcher{}
-	err = analyzers.Analyze(input.Url, &f)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
+
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Flush()
+
+	ctx := c.Request.Context()
+	a := analyzers.BodyAnalyzer{
+		Fetcher: &fetcher.Fetcher{},
+		Stream:  make(chan string, 20),
+		Output:  models.Output{},
+	}
+	go func() {
+		defer close(a.Stream)
+		err = a.Analyze(input.Url)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
+		}
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Client disconnected")
+			return
+		case msg, ok := <-a.Stream:
+			if !ok {
+				return
+			}
+			fmt.Fprintf(c.Writer, "data: %s\n\n", msg)
+			c.Writer.Flush()
+		}
 	}
 
-	c.JSON(http.StatusOK, map[string]interface{}{})
+	//c.JSON(http.StatusOK, map[string]interface{}{})
 }
