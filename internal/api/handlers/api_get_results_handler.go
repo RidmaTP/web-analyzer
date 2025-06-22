@@ -46,7 +46,7 @@ func GetResultsHandler(c *gin.Context) {
 				return
 			}
 		case <-ctx.Done():
-			fmt.Println("Client disconnected")
+			fmt.Println("client disconnected")
 			return
 		case msg, ok := <-a.Stream:
 			if !ok {
@@ -56,6 +56,4 @@ func GetResultsHandler(c *gin.Context) {
 			c.Writer.Flush()
 		}
 	}
-
-	//c.JSON(http.StatusOK, map[string]interface{}{})
 }
