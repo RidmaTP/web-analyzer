@@ -2,7 +2,6 @@ package analyzers
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 
@@ -18,6 +17,16 @@ type BodyAnalyzer struct {
 	Output  models.Output
 }
 
+type LoginFlags struct {
+	IsForm          bool
+	IsPasswordField bool
+	IsTextField     bool
+	IsLoginButton   bool
+	InForm          bool
+	InButton        bool
+}
+
+
 func (a *BodyAnalyzer) Analyze(url string) error {
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
@@ -27,6 +36,8 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 	tokenizer := html.NewTokenizer(ioReader)
 
 	var inTitle bool
+
+	loginFlags := LoginFlags{}
 
 	for {
 		tokenType := tokenizer.Next()
@@ -55,10 +66,17 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 
+		err = a.FindLinks(tokenType, token, url)
+		if err != nil {
+			return err
+		}
+		err = a.FindIfLogin(tokenType, token, &loginFlags)
+		if err != nil {
+			return err
+		}
+
 	}
 
-	fmt.Println("Page title:", a.Output.Title)
-	fmt.Println("Page Version:", a.Output.Version)
 	return nil
 }
 
@@ -126,6 +144,89 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 				return err
 			}
 			a.Stream <- *jsonStr
+		}
+	}
+	return nil
+}
+
+func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string) error {
+	if tokenType == html.StartTagToken {
+		tokenData := token.Data
+		if tokenData == "a" {
+			for _, attr := range token.Attr {
+				if attr.Key == "href" {
+					if utils.IsExternalLink(attr.Val, baseUrl) {
+						a.Output.ExternalLinks.Count++
+						a.Output.ExternalLinks.Links = append(a.Output.ExternalLinks.Links, attr.Val)
+					} else {
+						a.Output.InternalLinks.Count++
+						a.Output.InternalLinks.Links = append(a.Output.InternalLinks.Links, attr.Val)
+					}
+					jsonStr, err := utils.JsonToText(a.Output)
+					if err != nil {
+						return err
+					}
+					a.Stream <- *jsonStr
+				}
+			}
+		}
+	}
+	return nil
+}
+func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
+	if tokenType == html.StartTagToken {
+		tokenData := token.Data
+
+		if tokenData == "form" {
+			loginFlags.IsForm = true
+			loginFlags.InForm = true
+			return nil
+		} else if tokenData == "input" {
+			for _, attr := range token.Attr {
+				if attr.Key == "type" {
+					if attr.Val == "password" {
+						loginFlags.IsPasswordField = true
+						return nil
+					} else if attr.Val == "email" || attr.Val == "text" {
+						loginFlags.IsTextField = true
+						return nil
+					} else if attr.Val == "submit" {
+						loginFlags.IsLoginButton = true
+						return nil
+					}
+				}
+			}
+		} else if tokenData == "button" {
+			for _, attr := range token.Attr {
+				if attr.Key == "type" {
+					if attr.Val == "submit" {
+						loginFlags.InButton = true
+						return nil
+					}
+				}
+			}
+		}
+	} else if tokenType == html.EndTagToken {
+		tokenData := token.Data
+		if tokenData == "form" {
+			return nil
+
+		} else if tokenData == "button" {
+			if loginFlags.InForm && loginFlags.InButton {
+				loginFlags.InButton = false
+				return nil
+			}
+		}
+	} else if tokenType == html.TextToken {
+		if loginFlags.InButton && loginFlags.InForm {
+			loginKeywords := []string{"login", "log in", "sign in", "signin", "submit", "access"}
+			btnText := strings.ToLower(strings.ReplaceAll(token.Data, " ", ""))
+			for _, keyword := range loginKeywords {
+				if btnText == keyword {
+					loginFlags.IsLoginButton = true
+					return nil
+				}
+			}
 		}
 	}
 	return nil
