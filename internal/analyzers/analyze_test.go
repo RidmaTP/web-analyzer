@@ -216,12 +216,7 @@ func TestBodyAnalyzer_FindHTMLVersion(t *testing.T) {
 			}
 
 			err := ba.FindHTMLVersion(tt.tokenType, tt.token)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
+			assert.NoError(t, err)
 			if tt.wantStreamMsg {
 				select {
 				case msg := <-ba.Stream:
@@ -297,6 +292,89 @@ func TestBodyAnalyzer_FindHeaderCount(t *testing.T) {
 					err := json.Unmarshal([]byte(msg), &out)
 					assert.NoError(t, err)
 					assert.Equal(t, tt.expected, ba.Output.Headers)
+				default:
+					assert.Fail(t, "expected message on Stream, but none found")
+				}
+			}
+		})
+	}
+}
+
+func TestBodyAnalyzer_FindLinks(t *testing.T) {
+	tests := []struct {
+		name          string
+		tokenType     html.TokenType
+		token         html.Token
+		expected      models.LinksData
+		baseurl       string
+		isExternal    bool
+		wantStreamMsg bool
+	}{
+		{
+			name:      "Parsing a tag to get external link",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "a", Attr: []html.Attribute{html.Attribute{Key: "href", Val: "https://www.lucytech.se"}}},
+			expected: models.LinksData{
+				Count: 1,
+				Links: []string{"https://www.lucytech.se"},
+			},
+			baseurl:       "https://www.home24.de",
+			wantStreamMsg: true,
+			isExternal:    true,
+		},
+		{
+			name:      "Parsing a tag to get internal link",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "a", Attr: []html.Attribute{html.Attribute{Key: "href", Val: "https://www.lucytech.se"}}},
+			expected: models.LinksData{
+				Count: 1,
+				Links: []string{"https://www.lucytech.se"},
+			},
+			baseurl:       "https://www.lucytech.se",
+			wantStreamMsg: true,
+			isExternal:    false,
+		},
+		{
+			name:      "Ignoring non a tags",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "div"},
+			expected:  models.LinksData{},
+		},
+		{
+			name:      "Ignoring non href attributes",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "a", Attr: []html.Attribute{html.Attribute{Key: "type", Val: "text/html"}}},
+			expected:  models.LinksData{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := make(chan string, 1)
+			ba := &BodyAnalyzer{
+				Output: models.Output{},
+				Stream: stream,
+			}
+
+			err := ba.FindLinks(tt.tokenType, tt.token, tt.baseurl)
+			assert.NoError(t, err)
+			if tt.isExternal {
+				assert.Equal(t, tt.expected, ba.Output.ExternalLinks)
+			} else {
+				assert.Equal(t, tt.expected, ba.Output.InternalLinks)
+			}
+
+			if tt.wantStreamMsg {
+				select {
+				case msg := <-stream:
+					var out models.Output
+					err := json.Unmarshal([]byte(msg), &out)
+					assert.NoError(t, err)
+					if tt.isExternal {
+						assert.Equal(t, tt.expected, ba.Output.ExternalLinks)
+					} else {
+						assert.Equal(t, tt.expected, ba.Output.InternalLinks)
+					}
 				default:
 					assert.Fail(t, "expected message on Stream, but none found")
 				}
