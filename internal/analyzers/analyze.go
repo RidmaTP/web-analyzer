@@ -16,6 +16,7 @@ type BodyAnalyzer struct {
 	Stream  chan string
 	Output  models.Output
 }
+
 type LoginFlags struct {
 	IsForm          bool
 	IsPasswordField bool
@@ -24,6 +25,7 @@ type LoginFlags struct {
 	InForm          bool
 	InButton        bool
 }
+
 
 func (a *BodyAnalyzer) Analyze(url string) error {
 	ioReader, err := a.Fetcher.FetchBody(url)
@@ -34,7 +36,9 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 	tokenizer := html.NewTokenizer(ioReader)
 
 	var inTitle bool
+
 	loginFlags := LoginFlags{}
+
 	for {
 		tokenType := tokenizer.Next()
 		if tokenType == html.ErrorToken {

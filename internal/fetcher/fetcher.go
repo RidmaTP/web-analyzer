@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type BodyFetcher interface {
@@ -27,4 +28,3 @@ func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 	}
 	return resp.Body, nil
 }
-

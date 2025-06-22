@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
 	"github.com/RidmaTP/web-analyzer/internal/models"
 )
 
@@ -29,6 +28,7 @@ func JsonToText(output models.Output) (*string, error) {
 	return &str, nil
 }
 
+
 func ErrStreamObj(errStr string) *string {
 	errString := fmt.Sprintf(`{"error" : "%s"}`, errStr)
 	return &errString
@@ -48,3 +48,4 @@ func IsExternalLink(link, baseUrl string) bool {
 	}
 	return !strings.Contains(u.Host, bu.Host)
 }
+
