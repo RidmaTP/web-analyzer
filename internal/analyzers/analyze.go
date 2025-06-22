@@ -10,8 +10,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-func Analyze(url string) error {
-	ioReader, err := fetcher.FetchBody(url)
+func Analyze(url string, f fetcher.BodyFetcher) error {
+	ioReader, err := f.FetchBody(url)
 	if err != nil {
 		return err
 	}

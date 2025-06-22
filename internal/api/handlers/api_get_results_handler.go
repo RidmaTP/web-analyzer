@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/RidmaTP/web-analyzer/internal/analyzers"
+	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
 	"github.com/RidmaTP/web-analyzer/internal/utils"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,8 @@ func GetResultsHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
 	}
-	err = analyzers.Analyze(input.Url)
+	f := fetcher.Fetcher{}
+	err = analyzers.Analyze(input.Url, &f)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
 	}
