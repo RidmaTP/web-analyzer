@@ -6,6 +6,10 @@ import (
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
+
+	//"github.com/RidmaTP/web-analyzer/internal/utils"
+
+	//"github.com/RidmaTP/web-analyzer/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
 )
@@ -468,6 +472,94 @@ func TestBodyAnalyzer_FindLinks(t *testing.T) {
 					assert.Fail(t, "expected message on Stream, but none found")
 				}
 			}
+		})
+	}
+}
+
+func TestFindIfLogin(t *testing.T) {
+	type step struct {
+		tokenType html.TokenType
+		token     html.Token
+	}
+
+	tests := []struct {
+		name              string
+		steps             []step
+		expectFlags       LoginFlags
+		expectIsLogin     bool
+		alreadyFoundLogin bool
+	}{
+		{
+			name:        "Detect full login with input submit password text",
+			expectFlags: LoginFlags{IsForm: true, IsPasswordField: true, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			steps: []step{
+				{html.StartTagToken, html.Token{Data: "form"}},
+				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
+				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "password"}}}},
+				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "submit"}}}},
+				{html.EndTagToken, html.Token{Data: "form"}},
+			},
+			expectIsLogin: true,
+		},
+		{
+			name:        "No password field",
+			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			steps: []step{
+				{html.StartTagToken, html.Token{Data: "form"}},
+				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
+				//{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "password"}}}},
+				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "submit"}}}},
+				{html.EndTagToken, html.Token{Data: "form"}},
+			},
+			expectIsLogin: false,
+		},
+		{
+			name:        "Button login text detection",
+			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: false, IsLoginButton: true, InForm: true, InButton: false},
+			steps: []step{
+				{html.StartTagToken, html.Token{Data: "form"}},
+				{html.StartTagToken, html.Token{Data: "button", Attr: []html.Attribute{{Key: "type", Val: "submit"}}}},
+				{html.TextToken, html.Token{Data: "login"}},
+				{html.EndTagToken, html.Token{Data: "button"}},
+				{html.EndTagToken, html.Token{Data: "form"}},
+			},
+			expectIsLogin: false,
+		},
+		{
+			name:        "Unrelated token",
+			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			steps: []step{
+				{html.StartTagToken, html.Token{Data: "h1"}},
+				{html.TextToken, html.Token{Data: "Header"}},
+				{html.EndTagToken, html.Token{Data: "h1"}},
+			},
+			expectIsLogin: false,
+		},
+		{
+			name:        "Login Already Found",
+			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			steps: []step{
+				{html.StartTagToken, html.Token{Data: "h1"}},
+			},
+			expectIsLogin:     true,
+			alreadyFoundLogin: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analyzer := &BodyAnalyzer{
+				Output: models.Output{IsLogin: tt.alreadyFoundLogin},
+			}
+			flags := LoginFlags{}
+
+			for _, step := range tt.steps {
+				err := analyzer.FindIfLogin(step.tokenType, step.token, &flags)
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.expectFlags, flags)
+			assert.Equal(t, tt.expectIsLogin, analyzer.Output.IsLogin)
 		})
 	}
 }

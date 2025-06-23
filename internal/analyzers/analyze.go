@@ -179,14 +179,19 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 	return nil
 }
 func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
+	if a.Output.IsLogin{
+		return nil
+	}
 	if loginFlags.IsLoginButton && loginFlags.IsPasswordField && loginFlags.IsTextField && loginFlags.IsForm {
-		loginFlags.IsLoginButton, loginFlags.IsForm, loginFlags.IsTextField, loginFlags.IsPasswordField = false, false, false, false
 		a.Output.IsLogin = true
-		jsonStr, err := utils.JsonToText(a.Output)
-		if err != nil {
-			return err
+		if a.Stream != nil {
+			jsonStr, err := utils.JsonToText(a.Output)
+			if err != nil {
+				return err
+			}
+			a.Stream <- *jsonStr
 		}
-		a.Stream <- *jsonStr
+
 		return nil
 	}
 	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
