@@ -2,7 +2,6 @@ package analyzers
 
 import (
 	"encoding/json"
-	//"fmt"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
@@ -171,6 +170,7 @@ func TestBodyAnalyzer_FindTitle(t *testing.T) {
 		wantTitle      string
 		wantStreamMsg  bool
 		wantErr        bool
+		existingTitle  string
 	}{
 		{
 			name:           "Start tag <title>",
@@ -202,13 +202,23 @@ func TestBodyAnalyzer_FindTitle(t *testing.T) {
 			initialInTitle: false,
 			wantInTitle:    false,
 		},
+		{
+			name:           "Title Already found",
+			tokenType:      html.TextToken,
+			token:          html.Token{Data: "New title"},
+			initialInTitle: true,
+			wantInTitle:    false,
+			wantStreamMsg:  false,
+			existingTitle:  "Old title",
+			wantTitle:      "Old title",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ba := &BodyAnalyzer{
 				Stream: make(chan string, 1),
-				Output: models.Output{},
+				Output: models.Output{Title: tt.existingTitle},
 			}
 
 			inTitle, err := ba.FindTitle(tt.tokenType, tt.token, tt.initialInTitle)
@@ -226,7 +236,7 @@ func TestBodyAnalyzer_FindTitle(t *testing.T) {
 					var out models.Output
 					err := json.Unmarshal([]byte(msg), &out)
 					assert.NoError(t, err)
-					assert.Equal(t, tt.wantTitle, out.Title)
+					assert.Equal(t, tt.wantTitle, out.Title, "expected "+tt.existingTitle+", got "+out.Title)
 				default:
 					t.Error("expected message on Stream, but none found")
 				}

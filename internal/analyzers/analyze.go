@@ -80,8 +80,11 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 }
 
 func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inTitle bool) (bool, error) {
+	if a.Output.Title != "" {
+		return false, nil
+	}
 	if token.Data == "title" {
-		if tokenType == html.StartTagToken {
+		if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 			return true, nil
 		} else if tokenType == html.EndTagToken {
 			return false, nil
@@ -105,6 +108,9 @@ func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inT
 }
 
 func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Token) error {
+	if a.Output.Version != "" {
+		return nil
+	}
 	version := ""
 	if tokenType == html.DoctypeToken {
 		doctype := token.Data
@@ -134,7 +140,7 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 	if a.Output.Headers == nil {
 		a.Output.Headers = make(map[string]int)
 	}
-	if tokenType == html.StartTagToken {
+	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		header := token.Data
 		if header == "h1" || header == "h2" || header == "h3" || header == "h4" || header == "h5" || header == "h6" {
 			a.Output.Headers[header]++
