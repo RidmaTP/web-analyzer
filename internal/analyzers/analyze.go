@@ -26,7 +26,6 @@ type LoginFlags struct {
 	InButton        bool
 }
 
-
 func (a *BodyAnalyzer) Analyze(url string) error {
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
@@ -74,7 +73,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 		if err != nil {
 			return err
 		}
-
+		//fmt.Println(loginFlags)
 	}
 
 	return nil
@@ -150,7 +149,7 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 }
 
 func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string) error {
-	if tokenType == html.StartTagToken {
+	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		tokenData := token.Data
 		if tokenData == "a" {
 			for _, attr := range token.Attr {
@@ -174,7 +173,18 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 	return nil
 }
 func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
-	if tokenType == html.StartTagToken {
+	if loginFlags.IsLoginButton && loginFlags.IsPasswordField && loginFlags.IsTextField && loginFlags.IsForm {
+		loginFlags.IsLoginButton, loginFlags.IsForm, loginFlags.IsTextField, loginFlags.IsPasswordField = false, false, false, false
+		a.Output.IsLogin = true
+		jsonStr, err := utils.JsonToText(a.Output)
+		if err != nil {
+			return err
+		}
+		a.Stream <- *jsonStr
+		return nil
+	}
+	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
+
 		tokenData := token.Data
 
 		if tokenData == "form" {
@@ -182,6 +192,7 @@ func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, l
 			loginFlags.InForm = true
 			return nil
 		} else if tokenData == "input" {
+
 			for _, attr := range token.Attr {
 				if attr.Key == "type" {
 					if attr.Val == "password" {
