@@ -285,6 +285,9 @@ func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan stri
 			a.muActive.Unlock()
 		}
 		jsonStr, err := utils.JsonToText(a.Output)
-		a.Stream <- *jsonStr
+		if a.Stream != nil {
+			a.Stream <- *jsonStr
+		}
+
 	}
 }
