@@ -1,9 +1,11 @@
 package analyzers
 
 import (
+	//"encoding/base32"
 	"errors"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
@@ -12,21 +14,22 @@ import (
 )
 
 type BodyAnalyzer struct {
-	Fetcher fetcher.BodyFetcher
-	Stream  chan string
-	Output  models.Output
-}
-
-type LoginFlags struct {
-	IsForm          bool
-	IsPasswordField bool
-	IsTextField     bool
-	IsLoginButton   bool
-	InForm          bool
-	InButton        bool
+	Fetcher    fetcher.BodyFetcher
+	Stream     chan string
+	Output     models.Output
+	muActive   sync.Mutex
+	muInactive sync.Mutex
+	wg         *sync.WaitGroup
+	Workers    int
 }
 
 func (a *BodyAnalyzer) Analyze(url string) error {
+	var inTitle bool
+	a.muActive, a.muInactive = sync.Mutex{}, sync.Mutex{}
+	a.wg = &sync.WaitGroup{}
+	linkJobQueue := make(chan string, a.Workers)
+	loginFlags := models.LoginFlags{}
+
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
 		return err
@@ -34,9 +37,14 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 	defer ioReader.Close()
 	tokenizer := html.NewTokenizer(ioReader)
 
-	var inTitle bool
+	for i := 0; i < a.Workers; i++ {
+		a.wg.Add(1)
+		go func(a *BodyAnalyzer, linkJobQueue *chan string, baseUrl string) {
+			defer a.wg.Done()
+			a.ActiveCheckWorker(baseUrl, linkJobQueue)
 
-	loginFlags := LoginFlags{}
+		}(a, &linkJobQueue, url)
+	}
 
 	for {
 		tokenType := tokenizer.Next()
@@ -65,7 +73,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 
-		err = a.FindLinks(tokenType, token, url)
+		err = a.FindLinks(tokenType, token, url, &linkJobQueue)
 		if err != nil {
 			return err
 		}
@@ -73,8 +81,9 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 		if err != nil {
 			return err
 		}
-		//fmt.Println(loginFlags)
 	}
+	close(linkJobQueue)
+	a.wg.Wait()
 
 	return nil
 }
@@ -111,6 +120,7 @@ func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Toke
 	if a.Output.Version != "" {
 		return nil
 	}
+
 	version := ""
 	if tokenType == html.DoctypeToken {
 		doctype := token.Data
@@ -154,7 +164,7 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 	return nil
 }
 
-func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string) error {
+func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string, linkJobQueue *chan string) error {
 	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		tokenData := token.Data
 		if tokenData == "a" {
@@ -167,6 +177,10 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 						a.Output.InternalLinks.Count++
 						a.Output.InternalLinks.Links = append(a.Output.InternalLinks.Links, attr.Val)
 					}
+					if linkJobQueue != nil {
+						*linkJobQueue <- attr.Val
+					}
+
 					jsonStr, err := utils.JsonToText(a.Output)
 					if err != nil {
 						return err
@@ -178,8 +192,8 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 	}
 	return nil
 }
-func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
-	if a.Output.IsLogin{
+func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *models.LoginFlags) error {
+	if a.Output.IsLogin {
 		return nil
 	}
 	if loginFlags.IsLoginButton && loginFlags.IsPasswordField && loginFlags.IsTextField && loginFlags.IsForm {
@@ -252,4 +266,28 @@ func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, l
 		}
 	}
 	return nil
+}
+
+func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan string) {
+	for link := range *linkJobQueue {
+		link = utils.AddInternalHost(link, baseUrl)
+
+		_, err := a.Fetcher.FetchBody(link)
+		if err != nil {
+			a.muInactive.Lock()
+			a.Output.InactiveLinks.Count++
+			a.Output.InactiveLinks.Links = append(a.Output.InactiveLinks.Links, link)
+			a.muInactive.Unlock()
+		} else {
+			a.muActive.Lock()
+			a.Output.ActiveLinks.Count++
+			a.Output.ActiveLinks.Links = append(a.Output.ActiveLinks.Links, link)
+			a.muActive.Unlock()
+		}
+		jsonStr, err := utils.JsonToText(a.Output)
+		if a.Stream != nil {
+			a.Stream <- *jsonStr
+		}
+
+	}
 }

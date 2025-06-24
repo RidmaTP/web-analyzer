@@ -4,6 +4,7 @@ import (
 	//"errors"
 	"fmt"
 	"net/http"
+	"runtime"
 
 	"github.com/RidmaTP/web-analyzer/internal/analyzers"
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
@@ -29,6 +30,7 @@ func GetResultsHandler(c *gin.Context) {
 		Fetcher: &fetcher.Fetcher{},
 		Stream:  make(chan string, 20),
 		Output:  models.Output{},
+		Workers:runtime.NumCPU(),
 	}
 	errChan := make(chan error)
 	go func() {

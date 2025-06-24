@@ -2,14 +2,11 @@ package analyzers
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
-
-	//"github.com/RidmaTP/web-analyzer/internal/utils"
-
-	//"github.com/RidmaTP/web-analyzer/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
 )
@@ -445,11 +442,15 @@ func TestBodyAnalyzer_FindLinks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stream := make(chan string, 1)
 			ba := &BodyAnalyzer{
-				Output: models.Output{},
-				Stream: stream,
+				Output:     models.Output{},
+				Stream:     stream,
+				Fetcher:    &fetcher.MockFetcher{},
+				muInactive: sync.Mutex{},
+				muActive:   sync.Mutex{},
+				wg:         &sync.WaitGroup{},
 			}
-
-			err := ba.FindLinks(tt.tokenType, tt.token, tt.baseurl)
+			jobs := make(chan string, 10)
+			err := ba.FindLinks(tt.tokenType, tt.token, tt.baseurl, &jobs)
 			assert.NoError(t, err)
 			if tt.isExternal {
 				assert.Equal(t, tt.expected, ba.Output.ExternalLinks)
@@ -476,7 +477,7 @@ func TestBodyAnalyzer_FindLinks(t *testing.T) {
 	}
 }
 
-func TestFindIfLogin(t *testing.T) {
+func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 	type step struct {
 		tokenType html.TokenType
 		token     html.Token
@@ -485,13 +486,13 @@ func TestFindIfLogin(t *testing.T) {
 	tests := []struct {
 		name              string
 		steps             []step
-		expectFlags       LoginFlags
+		expectFlags       models.LoginFlags
 		expectIsLogin     bool
 		alreadyFoundLogin bool
 	}{
 		{
 			name:        "Detect full login with input submit password text",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: true, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: true, IsPasswordField: true, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
@@ -503,7 +504,7 @@ func TestFindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "No password field",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
@@ -515,7 +516,7 @@ func TestFindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Button login text detection",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: false, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: false, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.StartTagToken, html.Token{Data: "button", Attr: []html.Attribute{{Key: "type", Val: "submit"}}}},
@@ -527,7 +528,7 @@ func TestFindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Unrelated token",
-			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "h1"}},
 				{html.TextToken, html.Token{Data: "Header"}},
@@ -537,7 +538,7 @@ func TestFindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Login Already Found",
-			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "h1"}},
 			},
@@ -551,7 +552,7 @@ func TestFindIfLogin(t *testing.T) {
 			analyzer := &BodyAnalyzer{
 				Output: models.Output{IsLogin: tt.alreadyFoundLogin},
 			}
-			flags := LoginFlags{}
+			flags := models.LoginFlags{}
 
 			for _, step := range tt.steps {
 				err := analyzer.FindIfLogin(step.tokenType, step.token, &flags)
@@ -560,6 +561,56 @@ func TestFindIfLogin(t *testing.T) {
 
 			assert.Equal(t, tt.expectFlags, flags)
 			assert.Equal(t, tt.expectIsLogin, analyzer.Output.IsLogin)
+		})
+	}
+}
+func TestBodyAnalyzer_ActiveCheckerWorker(t *testing.T) {
+	type step struct {
+		tokenType html.TokenType
+		token     html.Token
+	}
+
+	tests := []struct {
+		name          string
+		url           string
+		jobQueue      chan string
+		expected      models.Output
+		isUrlInactive bool
+	}{
+		{
+			name:          "Accessible URL",
+			url:           "https://lucytech.se/",
+			jobQueue:      make(chan string, 1),
+			expected:      models.Output{ActiveLinks: models.LinksData{Count: 1, Links: []string{"https://lucytech.se/"}}},
+			isUrlInactive: false,
+		},
+		{
+			name:          "Inaccessible URL",
+			url:           "https://lucytech.se/",
+			jobQueue:      make(chan string, 1),
+			expected:      models.Output{InactiveLinks: models.LinksData{Count: 1, Links: []string{"https://lucytech.se/"}}},
+			isUrlInactive: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analyzer := &BodyAnalyzer{
+				Output:  models.Output{},
+				Fetcher: &fetcher.MockFetcher{ForceErr: tt.isUrlInactive},
+				Stream:  make(chan string, 1),
+			}
+
+			go analyzer.ActiveCheckWorker(tt.url, &tt.jobQueue)
+
+			tt.jobQueue <- tt.url
+			close(tt.jobQueue)
+			var out models.Output
+			msg := <-analyzer.Stream
+			err := json.Unmarshal([]byte(msg), &out)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expected, out)
 		})
 	}
 }

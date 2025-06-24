@@ -19,3 +19,12 @@ type LinksData struct {
 type Input struct {
 	Url string `json:"url"`
 }
+
+type LoginFlags struct {
+	IsForm          bool
+	IsPasswordField bool
+	IsTextField     bool
+	IsLoginButton   bool
+	InForm          bool
+	InButton        bool
+}
