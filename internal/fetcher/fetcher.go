@@ -1,7 +1,7 @@
 package fetcher
 
 import (
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -19,11 +19,7 @@ func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, errors.New(string(resp))
+		return nil, fmt.Errorf("%d is returned",resp.StatusCode)
 	}
 	return resp.Body, nil
 }

@@ -70,29 +70,62 @@ func TestIsExternalLink(t *testing.T) {
 		expect  bool
 	}{
 		{
-			name:      "Internal with host",
+			name:    "Internal with host",
 			baseurl: "https://lucytech.se/",
-			link: "https://lucytech.se/contact",
-			expect: false,
+			link:    "https://lucytech.se/contact",
+			expect:  false,
 		},
 		{
-			name:      "Internal without host",
+			name:    "Internal without host",
 			baseurl: "https://lucytech.se/",
-			link: "/contact",
-			expect: false,
+			link:    "/contact",
+			expect:  false,
 		},
 		{
-			name:      "External",
+			name:    "External",
 			baseurl: "https://lucytech.se/",
-			link: "https://www.home24.de/",
-			expect: true,
+			link:    "https://www.home24.de/",
+			expect:  true,
 		},
-		
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := IsExternalLink(tc.link , tc.baseurl)
+			r := IsExternalLink(tc.link, tc.baseurl)
+			assert.Equal(t, r, tc.expect)
+		})
+	}
+}
+func TestAddInternalHost(t *testing.T) {
+	testCases := []struct {
+		name    string
+		baseurl string
+		link    string
+		expect  string
+	}{
+		{
+			name:    "Internal without host",
+			baseurl: "https://lucytech.se/",
+			link:    "/contact",
+			expect:  "https://lucytech.se/contact",
+		},
+		{
+			name:    "Internal without host",
+			baseurl: "https://lucytech.se/",
+			link:    "https://lucytech.se/contact",
+			expect:  "https://lucytech.se/contact",
+		},
+		{
+			name:    "External with host",
+			baseurl: "https://lucytech.se/",
+			link:    "https://www.home24.de",
+			expect:  "https://www.home24.de",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := AddInternalHost(tc.link, tc.baseurl)
 			assert.Equal(t, r, tc.expect)
 		})
 	}

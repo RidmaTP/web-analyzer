@@ -2,14 +2,11 @@ package analyzers
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/fetcher"
 	"github.com/RidmaTP/web-analyzer/internal/models"
-
-	//"github.com/RidmaTP/web-analyzer/internal/utils"
-
-	//"github.com/RidmaTP/web-analyzer/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/html"
 )
@@ -445,11 +442,15 @@ func TestBodyAnalyzer_FindLinks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stream := make(chan string, 1)
 			ba := &BodyAnalyzer{
-				Output: models.Output{},
-				Stream: stream,
+				Output:     models.Output{},
+				Stream:     stream,
+				Fetcher: &fetcher.MockFetcher{},
+				muInactive: sync.Mutex{},
+				muActive:   sync.Mutex{},
+				wg:         &sync.WaitGroup{},
 			}
-
-			err := ba.FindLinks(tt.tokenType, tt.token, tt.baseurl)
+			jobs:=make(chan string,10)
+			err := ba.FindLinks(tt.tokenType, tt.token, tt.baseurl,&jobs)
 			assert.NoError(t, err)
 			if tt.isExternal {
 				assert.Equal(t, tt.expected, ba.Output.ExternalLinks)
@@ -476,7 +477,7 @@ func TestBodyAnalyzer_FindLinks(t *testing.T) {
 	}
 }
 
-func TestFindIfLogin(t *testing.T) {
+func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 	type step struct {
 		tokenType html.TokenType
 		token     html.Token
