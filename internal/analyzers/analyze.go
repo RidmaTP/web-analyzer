@@ -14,26 +14,22 @@ import (
 )
 
 type BodyAnalyzer struct {
-	Fetcher fetcher.BodyFetcher
-	Stream  chan string
-	Output  models.Output
-
+	Fetcher    fetcher.BodyFetcher
+	Stream     chan string
+	Output     models.Output
 	muActive   sync.Mutex
 	muInactive sync.Mutex
 	wg         *sync.WaitGroup
 	Workers    int
 }
 
-type LoginFlags struct {
-	IsForm          bool
-	IsPasswordField bool
-	IsTextField     bool
-	IsLoginButton   bool
-	InForm          bool
-	InButton        bool
-}
-
 func (a *BodyAnalyzer) Analyze(url string) error {
+	var inTitle bool
+	a.muActive, a.muInactive = sync.Mutex{}, sync.Mutex{}
+	a.wg = &sync.WaitGroup{}
+	linkJobQueue := make(chan string, a.Workers)
+	loginFlags := models.LoginFlags{}
+
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
 		return err
@@ -41,22 +37,13 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 	defer ioReader.Close()
 	tokenizer := html.NewTokenizer(ioReader)
 
-	var inTitle bool
-
-	loginFlags := LoginFlags{}
-
-	a.muActive = sync.Mutex{}
-	a.muInactive = sync.Mutex{}
-	var wg sync.WaitGroup
-	a.wg = &wg
-	Jobs := make(chan string, a.Workers)
 	for i := 0; i < a.Workers; i++ {
 		a.wg.Add(1)
-		go func(a *BodyAnalyzer, jobs *chan string, baseUrl string) {
+		go func(a *BodyAnalyzer, linkJobQueue *chan string, baseUrl string) {
 			defer a.wg.Done()
-			a.ActiveCheckWorker(baseUrl,jobs)
+			a.ActiveCheckWorker(baseUrl, linkJobQueue)
 
-		}(a, &Jobs, url)
+		}(a, &linkJobQueue, url)
 	}
 
 	for {
@@ -86,7 +73,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 
-		err = a.FindLinks(tokenType, token, url,&Jobs)
+		err = a.FindLinks(tokenType, token, url, &linkJobQueue)
 		if err != nil {
 			return err
 		}
@@ -95,7 +82,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			return err
 		}
 	}
-	close(Jobs)
+	close(linkJobQueue)
 	a.wg.Wait()
 
 	return nil
@@ -177,7 +164,7 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 	return nil
 }
 
-func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string,Jobs *chan string) error {
+func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string, linkJobQueue *chan string) error {
 	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		tokenData := token.Data
 		if tokenData == "a" {
@@ -190,8 +177,8 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 						a.Output.InternalLinks.Count++
 						a.Output.InternalLinks.Links = append(a.Output.InternalLinks.Links, attr.Val)
 					}
-					if Jobs != nil {
-						*Jobs <- attr.Val
+					if linkJobQueue != nil {
+						*linkJobQueue <- attr.Val
 					}
 
 					jsonStr, err := utils.JsonToText(a.Output)
@@ -205,7 +192,7 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 	}
 	return nil
 }
-func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *LoginFlags) error {
+func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *models.LoginFlags) error {
 	if a.Output.IsLogin {
 		return nil
 	}
@@ -281,8 +268,8 @@ func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, l
 	return nil
 }
 
-func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string,jobs *chan string) {
-	for link := range *jobs {
+func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan string) {
+	for link := range *linkJobQueue {
 		link = utils.AddInternalHost(link, baseUrl)
 
 		_, err := a.Fetcher.FetchBody(link)

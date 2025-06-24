@@ -486,13 +486,13 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 	tests := []struct {
 		name              string
 		steps             []step
-		expectFlags       LoginFlags
+		expectFlags        models.LoginFlags
 		expectIsLogin     bool
 		alreadyFoundLogin bool
 	}{
 		{
 			name:        "Detect full login with input submit password text",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: true, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags:  models.LoginFlags{IsForm: true, IsPasswordField: true, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
@@ -504,7 +504,7 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "No password field",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags: models.LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: true, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.SelfClosingTagToken, html.Token{Data: "input", Attr: []html.Attribute{{Key: "type", Val: "text"}}}},
@@ -516,7 +516,7 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Button login text detection",
-			expectFlags: LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: false, IsLoginButton: true, InForm: true, InButton: false},
+			expectFlags:  models.LoginFlags{IsForm: true, IsPasswordField: false, IsTextField: false, IsLoginButton: true, InForm: true, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "form"}},
 				{html.StartTagToken, html.Token{Data: "button", Attr: []html.Attribute{{Key: "type", Val: "submit"}}}},
@@ -528,7 +528,7 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Unrelated token",
-			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			expectFlags:  models.LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "h1"}},
 				{html.TextToken, html.Token{Data: "Header"}},
@@ -538,7 +538,7 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 		},
 		{
 			name:        "Login Already Found",
-			expectFlags: LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
+			expectFlags:  models.LoginFlags{IsForm: false, IsPasswordField: false, IsTextField: false, IsLoginButton: false, InForm: false, InButton: false},
 			steps: []step{
 				{html.StartTagToken, html.Token{Data: "h1"}},
 			},
@@ -552,7 +552,7 @@ func TestBodyAnalyzer_FindIfLogin(t *testing.T) {
 			analyzer := &BodyAnalyzer{
 				Output: models.Output{IsLogin: tt.alreadyFoundLogin},
 			}
-			flags := LoginFlags{}
+			flags :=  models.LoginFlags{}
 
 			for _, step := range tt.steps {
 				err := analyzer.FindIfLogin(step.tokenType, step.token, &flags)
