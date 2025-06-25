@@ -8,8 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// initiating gin server on port 8000
-
+// initiating gin server on default port 8000
+// port can be changed from configs/.env
 func main() {
 	r := gin.Default()
 

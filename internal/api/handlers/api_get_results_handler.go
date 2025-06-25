@@ -10,7 +10,8 @@ import (
 	"github.com/RidmaTP/web-analyzer/internal/utils"
 	"github.com/gin-gonic/gin"
 )
-
+// Gin Api handler used to get a url
+// sends a text/event-stream in http1.1
 func GetResultsHandler(c *gin.Context) {
 
 	url := c.Query("url")
@@ -42,6 +43,7 @@ func GetResultsHandler(c *gin.Context) {
 	}()
 	for {
 		select {
+			//used to push the error
 		case errObj := <-errChan:
 			if errObj != nil {
 				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))

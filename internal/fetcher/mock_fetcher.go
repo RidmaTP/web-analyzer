@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 )
+// This is used to mock the FetchBody using Fetcher interface
+// can force errors to test fetcher errors
 
 type MockFetcher struct {
 	ResponseBody   string

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+//defines all the routes
 func Router(engine *gin.Engine) {
 	engine.Use(cors.Default())
 

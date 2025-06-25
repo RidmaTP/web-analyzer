@@ -13,6 +13,7 @@ var (
 	port        string
 )
 
+// load env in config pkg idempotently with sync.once
 func LoadEnv() error {
 	var loadErr error
 	loadEnvOnce.Do(func() {
@@ -31,9 +32,15 @@ func LoadEnv() error {
 }
 
 func GetAppVersion() string {
+	if version == ""{
+		LoadEnv()
+	}
 	return version
 }
 
 func GetPort() string {
+	if port == "" {
+		LoadEnv()
+	}
 	return port
 }
