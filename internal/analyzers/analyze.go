@@ -2,8 +2,8 @@ package analyzers
 
 import (
 	//"encoding/base32"
-	"errors"
 	"io"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -14,25 +14,25 @@ import (
 )
 
 type BodyAnalyzer struct {
-	Fetcher    fetcher.BodyFetcher
-	Stream     chan string
-	Output     models.Output
-	muActive   sync.Mutex
-	muInactive sync.Mutex
-	wg         *sync.WaitGroup
-	Workers    int
+	Fetcher         fetcher.BodyFetcher
+	Stream          chan string
+	Output          models.Output
+	muActiveLinks   sync.Mutex
+	muInactiveLinks sync.Mutex
+	wg              *sync.WaitGroup
+	Workers         int
 }
 
-func (a *BodyAnalyzer) Analyze(url string) error {
+func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut{
 	var inTitle bool
-	a.muActive, a.muInactive = sync.Mutex{}, sync.Mutex{}
+	a.muActiveLinks, a.muInactiveLinks = sync.Mutex{}, sync.Mutex{}
 	a.wg = &sync.WaitGroup{}
 	linkJobQueue := make(chan string, a.Workers)
 	loginFlags := models.LoginFlags{}
 
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
-		return err
+		return &models.ErrorOut{StatusCode: http.StatusBadGateway , Error: err.Error()}
 	}
 	defer ioReader.Close()
 	tokenizer := html.NewTokenizer(ioReader)
@@ -53,33 +53,33 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			if err == io.EOF {
 				break
 			}
-			return errors.New("error tokenzing html : " + err.Error())
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 		token := tokenizer.Token()
 
 		isInTitle, err := a.FindTitle(tokenType, token, inTitle)
 		if err != nil {
-			return err
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 		inTitle = isInTitle
 
 		err = a.FindHTMLVersion(tokenType, token)
 		if err != nil {
-			return err
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 
 		err = a.FindHeaderCount(tokenType, token)
 		if err != nil {
-			return err
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 
 		err = a.FindLinks(tokenType, token, url, &linkJobQueue)
 		if err != nil {
-			return err
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 		err = a.FindIfLogin(tokenType, token, &loginFlags)
 		if err != nil {
-			return err
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
 		}
 	}
 	close(linkJobQueue)
@@ -274,15 +274,15 @@ func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan stri
 
 		_, err := a.Fetcher.FetchBody(link)
 		if err != nil {
-			a.muInactive.Lock()
+			a.muInactiveLinks.Lock()
 			a.Output.InactiveLinks.Count++
 			a.Output.InactiveLinks.Links = append(a.Output.InactiveLinks.Links, link)
-			a.muInactive.Unlock()
+			a.muInactiveLinks.Unlock()
 		} else {
-			a.muActive.Lock()
+			a.muActiveLinks.Lock()
 			a.Output.ActiveLinks.Count++
 			a.Output.ActiveLinks.Links = append(a.Output.ActiveLinks.Links, link)
-			a.muActive.Unlock()
+			a.muActiveLinks.Unlock()
 		}
 		jsonStr, err := utils.JsonToText(a.Output)
 		if a.Stream != nil {

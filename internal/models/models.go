@@ -28,3 +28,8 @@ type LoginFlags struct {
 	InForm          bool
 	InButton        bool
 }
+
+type ErrorOut struct {
+	StatusCode int
+	Error      string
+}

@@ -4,16 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/RidmaTP/web-analyzer/internal/models"
+	"net/http"
 	"net/url"
 	"strings"
-)
 
-func SendErrResponse(err error) map[string]string {
-	return map[string]string{
-		"error": err.Error(),
-	}
-}
+	"github.com/RidmaTP/web-analyzer/internal/models"
+)
 
 func ContainsIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
@@ -28,8 +24,8 @@ func JsonToText(output models.Output) (*string, error) {
 	return &str, nil
 }
 
-func ErrStreamObj(errStr string) *string {
-	errString := fmt.Sprintf(`{"error" : "%s"}`, errStr)
+func ErrStreamObj(err models.ErrorOut) *string {
+	errString := fmt.Sprintf(`{"error" : "%s", "status_code" : "%d"}`, err.Error, err.StatusCode)
 	return &errString
 }
 
@@ -56,4 +52,34 @@ func AddInternalHost(link, baseUrl string) string {
 		return bu.Scheme + "://" + bu.Host + link
 	}
 	return link
+}
+
+func UrlValidationCheck(input string) *models.ErrorOut {
+	errOut := models.ErrorOut{StatusCode: http.StatusBadRequest, Error: "invalid url"}
+	parsedVal, err := url.ParseRequestURI(input)
+	if err != nil {
+		return &errOut
+	}
+	if parsedVal.Scheme != "http" && parsedVal.Scheme != "https" {
+		errOut.Error = "url scheme not found"
+		return &errOut
+	}
+	hostStr := ""
+	if strings.Contains(parsedVal.Host, "www.") {
+		wwwRemoved := strings.Split(parsedVal.Host, "www.")[1]
+		hostStr = wwwRemoved
+	} else {
+		hostStr = parsedVal.Host
+	}
+	if !strings.Contains(hostStr, ".") {
+		errOut.Error = "url domain not found"
+		return &errOut
+	}
+
+	if parsedVal.Host == "" {
+		errOut.Error = "url host not found"
+		return &errOut
+	}
+
+	return nil
 }

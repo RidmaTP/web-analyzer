@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/models"
@@ -61,7 +62,26 @@ func TestJsonToText(t *testing.T) {
 		})
 	}
 }
+func TestErrStreamObj(t *testing.T) {
+	testCases := []struct {
+		name      string
+		input     models.ErrorOut
+		expectOut string
+	}{
+		{
+			name:      "valid output",
+			input:     models.ErrorOut{StatusCode: 400 , Error: "bad request"},
+			expectOut: fmt.Sprintf(`{"error" : "%s", "status_code" : "%d"}`, "bad request", 400),
+		},
+	}
 
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			str := ErrStreamObj(tc.input)
+			assert.Equal(t, tc.expectOut, *str)
+		})
+	}
+}
 func TestIsExternalLink(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -126,6 +146,47 @@ func TestAddInternalHost(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := AddInternalHost(tc.link, tc.baseurl)
+			assert.Equal(t, r, tc.expect)
+		})
+	}
+}
+
+func TestValidateUrl(t *testing.T) {
+	testCases := []struct {
+		name    string
+		baseurl string
+		expect  *models.ErrorOut
+	}{
+		{
+			name:    "Valid Url",
+			baseurl: "https://lucytech.se/",
+			expect:  nil,
+		},
+		{
+			name:    "Valid Url",
+			baseurl: "https://www.lucytech.se/",
+			expect:  nil,
+		},
+		{
+			name:    "missing scheme",
+			baseurl: "htt://lucytech.se/",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url scheme not found"},
+		},
+		{
+			name:    "missing domain without www.",
+			baseurl: "http://hello",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
+		},
+		{
+			name:    "missing domain with www.",
+			baseurl: "http://www.hello",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := UrlValidationCheck(tc.baseurl)
 			assert.Equal(t, r, tc.expect)
 		})
 	}

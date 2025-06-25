@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	//"errors"
 	"fmt"
-	"net/http"
 	"runtime"
 
 	"github.com/RidmaTP/web-analyzer/internal/analyzers"
@@ -14,11 +12,8 @@ import (
 )
 
 func GetResultsHandler(c *gin.Context) {
-	input := models.Input{}
-	err := c.ShouldBindJSON(&input)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, utils.SendErrResponse(err))
-	}
+
+	url := c.Query("url")
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -30,19 +25,26 @@ func GetResultsHandler(c *gin.Context) {
 		Fetcher: &fetcher.Fetcher{},
 		Stream:  make(chan string, 20),
 		Output:  models.Output{},
-		Workers:runtime.NumCPU(),
+		Workers: runtime.NumCPU(),
 	}
-	errChan := make(chan error)
+
+	errObj := utils.UrlValidationCheck(url)
+	if errObj != nil {
+		fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))
+		c.Writer.Flush()
+		return
+	}
+	errChan := make(chan *models.ErrorOut)
 	go func() {
 		defer close(a.Stream)
-		err = a.Analyze(input.Url)
-		errChan <- err
+		errObj := a.Analyze(url)
+		errChan <- errObj
 	}()
 	for {
 		select {
-		case err := <-errChan:
-			if err != nil {
-				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(err.Error()))
+		case errObj := <-errChan:
+			if errObj != nil {
+				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))
 				c.Writer.Flush()
 
 				return
