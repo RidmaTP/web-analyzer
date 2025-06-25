@@ -11,6 +11,8 @@ import (
 	"github.com/RidmaTP/web-analyzer/internal/models"
 )
 
+// utility functions are included here
+
 func ContainsIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

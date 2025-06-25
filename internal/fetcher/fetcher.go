@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 )
-
+// fetcher contract
 type BodyFetcher interface {
 	FetchBody(url string) (io.ReadCloser, error)
 }
@@ -13,6 +13,7 @@ type BodyFetcher interface {
 type Fetcher struct {
 }
 
+// Returns the reader to read the body
 func (f *Fetcher) FetchBody(url string) (io.ReadCloser, error) {
 	resp, err := http.Get(url)
 	if err != nil {

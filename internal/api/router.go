@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+//defines all the routes
 func Router(engine *gin.Engine) {
 	engine.Use(cors.Default())
 
@@ -21,7 +22,7 @@ func routes(rg *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "service up and running",
 			"status":  "success",
-			"version": configs.APP_VERSION})
+			"version": configs.GetAppVersion()})
 	})
 
 	rg.GET("/result" , handlers.GetResultsHandler)

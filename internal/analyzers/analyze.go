@@ -13,6 +13,12 @@ import (
 	"golang.org/x/net/html"
 )
 
+// body analyzer configuration fields
+// stream is the channel used to stream the output to the frontend as a server sent event
+// output is the data struct used to define output structure
+// muActiveLinks and muInactiveLinks are used to avoid the race conditions for the necessary link slices
+// wg is a waitgroup used to synchronize workerpool
+// workers define the size of the worker pool
 type BodyAnalyzer struct {
 	Fetcher         fetcher.BodyFetcher
 	Stream          chan string
@@ -23,7 +29,13 @@ type BodyAnalyzer struct {
 	Workers         int
 }
 
-func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut{
+// main function of the analyzation process
+// gets the reader using fetchbody func
+// then it tokenizes the content and goes through the tokens
+// all analytics are collected when going through all the tokens once
+// during the scraping process, once a result is found they will be pushed to the frontend in realtime using http1.1 SSE
+// job queue wth a worker pool is used to improve the performance of finding active/inactive links
+func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut {
 	var inTitle bool
 	a.muActiveLinks, a.muInactiveLinks = sync.Mutex{}, sync.Mutex{}
 	a.wg = &sync.WaitGroup{}
@@ -32,7 +44,7 @@ func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut{
 
 	ioReader, err := a.Fetcher.FetchBody(url)
 	if err != nil {
-		return &models.ErrorOut{StatusCode: http.StatusBadGateway , Error: err.Error()}
+		return &models.ErrorOut{StatusCode: http.StatusBadGateway, Error: err.Error()}
 	}
 	defer ioReader.Close()
 	tokenizer := html.NewTokenizer(ioReader)
@@ -53,33 +65,33 @@ func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut{
 			if err == io.EOF {
 				break
 			}
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 		token := tokenizer.Token()
 
 		isInTitle, err := a.FindTitle(tokenType, token, inTitle)
 		if err != nil {
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 		inTitle = isInTitle
 
 		err = a.FindHTMLVersion(tokenType, token)
 		if err != nil {
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 
 		err = a.FindHeaderCount(tokenType, token)
 		if err != nil {
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 
 		err = a.FindLinks(tokenType, token, url, &linkJobQueue)
 		if err != nil {
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 		err = a.FindIfLogin(tokenType, token, &loginFlags)
 		if err != nil {
-			return &models.ErrorOut{StatusCode: http.StatusInternalServerError , Error: err.Error()}
+			return &models.ErrorOut{StatusCode: http.StatusInternalServerError, Error: err.Error()}
 		}
 	}
 	close(linkJobQueue)
@@ -88,6 +100,7 @@ func (a *BodyAnalyzer) Analyze(url string) *models.ErrorOut{
 	return nil
 }
 
+// used to find the title of the html body
 func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inTitle bool) (bool, error) {
 	if a.Output.Title != "" {
 		return false, nil
@@ -116,6 +129,7 @@ func (a *BodyAnalyzer) FindTitle(tokenType html.TokenType, token html.Token, inT
 	return inTitle, nil
 }
 
+// used to find the version of the html
 func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Token) error {
 	if a.Output.Version != "" {
 		return nil
@@ -146,6 +160,7 @@ func (a *BodyAnalyzer) FindHTMLVersion(tokenType html.TokenType, token html.Toke
 	return nil
 }
 
+// used to find the headercount of the html body
 func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Token) error {
 	if a.Output.Headers == nil {
 		a.Output.Headers = make(map[string]int)
@@ -164,6 +179,9 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 	return nil
 }
 
+// used to find the External,Internal links
+// acts as the producer of the linkJobQueue
+// when a link is found it checks if its internal/external and then pushes it to the job queue for a worker to check if its available
 func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string, linkJobQueue *chan string) error {
 	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		tokenData := token.Data
@@ -192,6 +210,8 @@ func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, bas
 	}
 	return nil
 }
+
+// finds if the html body has a login form
 func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, loginFlags *models.LoginFlags) error {
 	if a.Output.IsLogin {
 		return nil
@@ -268,6 +288,8 @@ func (a *BodyAnalyzer) FindIfLogin(tokenType html.TokenType, token html.Token, l
 	return nil
 }
 
+// acts as the worker of the job queue
+// checks if the link is available/not , groups them and pushes into the data stream as a text obj
 func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan string) {
 	for link := range *linkJobQueue {
 		link = utils.AddInternalHost(link, baseUrl)

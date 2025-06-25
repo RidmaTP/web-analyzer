@@ -1,5 +1,6 @@
 package models
 
+// all the data models will be listed here (since there are few models, included everything in one file)
 type Output struct {
 	Version       string
 	Title         string
