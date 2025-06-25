@@ -17,7 +17,7 @@ func main() {
 	if err !=nil{
 		log.Fatal(err)
 	}
-
+	configs.LoadLogger()
 	api.Router(r)
 	err = r.Run(":" + configs.GetPort())
 	if err != nil {
