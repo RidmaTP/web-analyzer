@@ -143,13 +143,23 @@ func TestValidateUrl(t *testing.T) {
 			expect:  nil,
 		},
 		{
-			name:    "Invalid url with invalid scheme",
+			name:    "Valid Url",
+			baseurl: "https://www.lucytech.se/",
+			expect:  nil,
+		},
+		{
+			name:    "missing scheme",
 			baseurl: "htt://lucytech.se/",
 			expect:  &models.ErrorOut{StatusCode: 400, Error: "url scheme not found"},
 		},
 		{
-			name:    "Invalid url with invalid host",
+			name:    "missing domain without www.",
 			baseurl: "http://hello",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
+		},
+		{
+			name:    "missing domain with www.",
+			baseurl: "http://www.hello",
 			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
 		},
 	}

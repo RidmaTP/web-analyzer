@@ -30,8 +30,8 @@ func JsonToText(output models.Output) (*string, error) {
 	return &str, nil
 }
 
-func ErrStreamObj(errStr string) *string {
-	errString := fmt.Sprintf(`{"error" : "%s"}`, errStr)
+func ErrStreamObj(err models.ErrorOut) *string {
+	errString := fmt.Sprintf(`{"error" : "%s", "status_code" : "%d"}`, err.Error, err.StatusCode)
 	return &errString
 }
 
@@ -70,13 +70,22 @@ func UrlValidationCheck(input string) *models.ErrorOut {
 		errOut.Error = "url scheme not found"
 		return &errOut
 	}
+	hostStr := ""
+	if strings.Contains(parsedVal.Host, "www.") {
+		wwwRemoved := strings.Split(parsedVal.Host, "www.")[1]
+		hostStr = wwwRemoved
+	} else {
+		hostStr = parsedVal.Host
+	}
+	if !strings.Contains(hostStr, ".") {
+		errOut.Error = "url domain not found"
+		return &errOut
+	}
+
 	if parsedVal.Host == "" {
 		errOut.Error = "url host not found"
 		return &errOut
 	}
-	if !strings.Contains(parsedVal.Host, ".") {
-		errOut.Error = "url domain not found"
-		return &errOut
-	}
+
 	return nil
 }
