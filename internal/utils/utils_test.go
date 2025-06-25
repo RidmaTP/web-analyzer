@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/RidmaTP/web-analyzer/internal/models"
@@ -61,7 +62,26 @@ func TestJsonToText(t *testing.T) {
 		})
 	}
 }
+func TestErrStreamObj(t *testing.T) {
+	testCases := []struct {
+		name      string
+		input     models.ErrorOut
+		expectOut string
+	}{
+		{
+			name:      "valid output",
+			input:     models.ErrorOut{StatusCode: 400 , Error: "bad request"},
+			expectOut: fmt.Sprintf(`{"error" : "%s", "status_code" : "%d"}`, "bad request", 400),
+		},
+	}
 
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			str := ErrStreamObj(tc.input)
+			assert.Equal(t, tc.expectOut, *str)
+		})
+	}
+}
 func TestIsExternalLink(t *testing.T) {
 	testCases := []struct {
 		name    string
