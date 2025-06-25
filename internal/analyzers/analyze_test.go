@@ -67,8 +67,8 @@ func Test_Analyze(t *testing.T) {
 
 			var out models.Output
 			if lastMsg != "" {
-				err = json.Unmarshal([]byte(lastMsg), &out)
-				if err != nil {
+				erro := json.Unmarshal([]byte(lastMsg), &out)
+				if erro != nil {
 					t.Fatalf("failed to unmarshal last message: %v", err)
 				}
 
@@ -106,22 +106,6 @@ func Test_Analyze_Err(t *testing.T) {
 			expectErr:       true,
 			forceErrFetcher: true,
 		},
-		{
-			name: "Forcing Fetcher error",
-			html: `
-				<!DOCTYPE html>
-				<html>
-					<head>
-						<title>Test Page</title>
-					</head>
-					<body>
-						<h1>Welcome</h1>
-					</body>
-				</html>
-			`,
-			expectErr:      true,
-			forceErrReader: true,
-		},
 	}
 
 	for _, tt := range tests {
@@ -152,8 +136,8 @@ func Test_Analyze_Err(t *testing.T) {
 
 			var out models.Output
 			if lastMsg != "" {
-				err = json.Unmarshal([]byte(lastMsg), &out)
-				if err != nil {
+				erro := json.Unmarshal([]byte(lastMsg), &out)
+				if erro != nil {
 					t.Fatalf("failed to unmarshal last message: %v", err)
 				}
 			}

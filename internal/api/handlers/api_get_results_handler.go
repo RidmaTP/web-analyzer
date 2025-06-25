@@ -27,17 +27,24 @@ func GetResultsHandler(c *gin.Context) {
 		Output:  models.Output{},
 		Workers: runtime.NumCPU(),
 	}
-	errChan := make(chan error)
+
+	errObj := utils.UrlValidationCheck(url)
+	if errObj != nil {
+		fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))
+		c.Writer.Flush()
+		return
+	}
+	errChan := make(chan *models.ErrorOut)
 	go func() {
 		defer close(a.Stream)
-		err := a.Analyze(url)
-		errChan <- err
+		errObj := a.Analyze(url)
+		errChan <- errObj
 	}()
 	for {
 		select {
-		case err := <-errChan:
-			if err != nil {
-				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(err.Error()))
+		case errObj := <-errChan:
+			if errObj != nil {
+				fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))
 				c.Writer.Flush()
 
 				return
@@ -54,4 +61,3 @@ func GetResultsHandler(c *gin.Context) {
 		}
 	}
 }
-
