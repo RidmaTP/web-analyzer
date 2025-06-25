@@ -60,23 +60,23 @@ func AddInternalHost(link, baseUrl string) string {
 	return link
 }
 
-func ValidateUrl(input string) *models.ErrorOut {
-	errObj := models.ErrorOut{StatusCode: http.StatusBadRequest, Error: "invalid url"}
-	parsed, err := url.ParseRequestURI(input)
+func UrlValidationCheck(input string) *models.ErrorOut {
+	errOut := models.ErrorOut{StatusCode: http.StatusBadRequest, Error: "invalid url"}
+	parsedVal, err := url.ParseRequestURI(input)
 	if err != nil {
-		return &errObj
+		return &errOut
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		errObj.Error = "url scheme not found"
-		return &errObj
+	if parsedVal.Scheme != "http" && parsedVal.Scheme != "https" {
+		errOut.Error = "url scheme not found"
+		return &errOut
 	}
-	if parsed.Host == "" {
-		errObj.Error = "url host not found"
-		return &errObj
+	if parsedVal.Host == "" {
+		errOut.Error = "url host not found"
+		return &errOut
 	}
-	if !strings.Contains(parsed.Host, ".") {
-		errObj.Error = "url domain not found"
-		return &errObj
+	if !strings.Contains(parsedVal.Host, ".") {
+		errOut.Error = "url domain not found"
+		return &errOut
 	}
 	return nil
 }

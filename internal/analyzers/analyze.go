@@ -14,18 +14,18 @@ import (
 )
 
 type BodyAnalyzer struct {
-	Fetcher    fetcher.BodyFetcher
-	Stream     chan string
-	Output     models.Output
-	muActive   sync.Mutex
-	muInactive sync.Mutex
-	wg         *sync.WaitGroup
-	Workers    int
+	Fetcher         fetcher.BodyFetcher
+	Stream          chan string
+	Output          models.Output
+	muActiveLinks   sync.Mutex
+	muInactiveLinks sync.Mutex
+	wg              *sync.WaitGroup
+	Workers         int
 }
 
 func (a *BodyAnalyzer) Analyze(url string) error {
 	var inTitle bool
-	a.muActive, a.muInactive = sync.Mutex{}, sync.Mutex{}
+	a.muActiveLinks, a.muInactiveLinks = sync.Mutex{}, sync.Mutex{}
 	a.wg = &sync.WaitGroup{}
 	linkJobQueue := make(chan string, a.Workers)
 	loginFlags := models.LoginFlags{}
@@ -53,7 +53,7 @@ func (a *BodyAnalyzer) Analyze(url string) error {
 			if err == io.EOF {
 				break
 			}
-			return errors.New("error tokenzing html : " + err.Error())
+			return errors.New("error : " + err.Error())
 		}
 		token := tokenizer.Token()
 
@@ -274,15 +274,15 @@ func (a *BodyAnalyzer) ActiveCheckWorker(baseUrl string, linkJobQueue *chan stri
 
 		_, err := a.Fetcher.FetchBody(link)
 		if err != nil {
-			a.muInactive.Lock()
+			a.muInactiveLinks.Lock()
 			a.Output.InactiveLinks.Count++
 			a.Output.InactiveLinks.Links = append(a.Output.InactiveLinks.Links, link)
-			a.muInactive.Unlock()
+			a.muInactiveLinks.Unlock()
 		} else {
-			a.muActive.Lock()
+			a.muActiveLinks.Lock()
 			a.Output.ActiveLinks.Count++
 			a.Output.ActiveLinks.Links = append(a.Output.ActiveLinks.Links, link)
-			a.muActive.Unlock()
+			a.muActiveLinks.Unlock()
 		}
 		jsonStr, err := utils.JsonToText(a.Output)
 		if a.Stream != nil {
