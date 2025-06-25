@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /web-analyzer
+RUN go build -o /web-analyzer ./cmd/server
 
 
 EXPOSE 8000
