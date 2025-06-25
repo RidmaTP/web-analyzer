@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/RidmaTP/web-analyzer/internal/models"
+	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/RidmaTP/web-analyzer/internal/models"
 )
 
 func SendErrResponse(err error) map[string]string {
@@ -56,4 +58,25 @@ func AddInternalHost(link, baseUrl string) string {
 		return bu.Scheme + "://" + bu.Host + link
 	}
 	return link
+}
+
+func ValidateUrl(input string) *models.ErrorOut {
+	errObj := models.ErrorOut{StatusCode: http.StatusBadRequest, Error: "invalid url"}
+	parsed, err := url.ParseRequestURI(input)
+	if err != nil {
+		return &errObj
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		errObj.Error = "url scheme not found"
+		return &errObj
+	}
+	if parsed.Host == "" {
+		errObj.Error = "url host not found"
+		return &errObj
+	}
+	if !strings.Contains(parsed.Host, ".") {
+		errObj.Error = "url domain not found"
+		return &errObj
+	}
+	return nil
 }

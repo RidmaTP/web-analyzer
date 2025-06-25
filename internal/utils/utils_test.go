@@ -130,3 +130,34 @@ func TestAddInternalHost(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateUrl(t *testing.T) {
+	testCases := []struct {
+		name    string
+		baseurl string
+		expect  *models.ErrorOut
+	}{
+		{
+			name:    "Valid Url",
+			baseurl: "https://lucytech.se/",
+			expect:  nil,
+		},
+		{
+			name:    "Invalid url with invalid scheme",
+			baseurl: "htt://lucytech.se/",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url scheme not found"},
+		},
+		{
+			name:    "Invalid url with invalid host",
+			baseurl: "http://hello",
+			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := ValidateUrl(tc.baseurl)
+			assert.Equal(t, r, tc.expect)
+		})
+	}
+}
