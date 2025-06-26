@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/RidmaTP/web-analyzer/configs"
+	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/RidmaTP/web-analyzer/internal/api"
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +17,8 @@ func main() {
 	if err !=nil{
 		log.Fatal(err)
 	}
-
+	configs.LoadLogger()
+	configs.LoadCacheConfig()
 	api.Router(r)
 	err = r.Run(":" + configs.GetPort())
 	if err != nil {

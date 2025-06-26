@@ -3,8 +3,9 @@ package api
 import (
 	"net/http"
 
-	"github.com/RidmaTP/web-analyzer/configs"
+	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/RidmaTP/web-analyzer/internal/api/handlers"
+	"github.com/RidmaTP/web-analyzer/internal/api/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -12,8 +13,9 @@ import (
 //defines all the routes
 func Router(engine *gin.Engine) {
 	engine.Use(cors.Default())
-
+	
 	group := engine.Group("/api/")
+	group.Use(middleware.LogMiddleware)
 	routes(group)
 }
 
