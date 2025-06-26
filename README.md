@@ -27,7 +27,7 @@ go run main.go
 
 ### Frontend Client
 
-For the client application, navigate to the client repository and follow these instructions:
+For the client application, navigate to the client repository ( https://github.com/RidmaTP/web-analyzer-fe ) and follow these instructions:
 
 #### Using Docker Compose
 ```bash
