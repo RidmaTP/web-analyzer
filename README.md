@@ -41,8 +41,10 @@ npm run dev
 ```
 
 ## Demo Video and Diagrams
-diagrams - https://drive.google.com/file/d/159YV28JE_6vVQCKBNRbDgwfxgJG0bknC/view?usp=sharing
-video - https://drive.google.com/file/d/11enzM2bCFviYz_bWyt5sESjXvyJ1uPti/view?usp=sharing
+
+**Diagrams** - https://drive.google.com/file/d/159YV28JE_6vVQCKBNRbDgwfxgJG0bknC/view?usp=sharing
+
+**Video** - https://drive.google.com/file/d/11enzM2bCFviYz_bWyt5sESjXvyJ1uPti/view?usp=sharing
 
 ## API Usage
 
