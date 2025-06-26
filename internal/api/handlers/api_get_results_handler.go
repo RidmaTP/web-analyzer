@@ -33,12 +33,13 @@ func GetResultsHandler(c *gin.Context) {
 		Workers: runtime.NumCPU(),
 	}
 
-	errObj := utils.UrlValidationCheck(url)
+	errObj := utils.UrlValidationCheck(&url)
 	if errObj != nil {
 		fmt.Fprintf(c.Writer, "data: %s\n\n", *utils.ErrStreamObj(*errObj))
 		c.Writer.Flush()
 		return
 	}
+	fmt.Println(url)
 
 	//checking cache for results for the given url
 	cacheObj := configs.GetCacheConfig()

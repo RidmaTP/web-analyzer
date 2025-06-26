@@ -56,9 +56,13 @@ func AddInternalHost(link, baseUrl string) string {
 	return link
 }
 
-func UrlValidationCheck(input string) *models.ErrorOut {
+func UrlValidationCheck(input *string) *models.ErrorOut {
+	
+	if len(strings.Split( *input, "://")) == 1 {
+		 *input = "https://" +  *input
+	}
 	errOut := models.ErrorOut{StatusCode: http.StatusBadRequest, Error: "invalid url"}
-	parsedVal, err := url.ParseRequestURI(input)
+	parsedVal, err := url.ParseRequestURI( *input)
 	if err != nil {
 		return &errOut
 	}

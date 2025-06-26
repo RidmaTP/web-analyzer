@@ -182,11 +182,16 @@ func TestValidateUrl(t *testing.T) {
 			baseurl: "http://www.hello",
 			expect:  &models.ErrorOut{StatusCode: 400, Error: "url domain not found"},
 		},
+		{
+			name:    "missing scheme completely",
+			baseurl: "www.hello.com",
+			expect:  nil,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			r := UrlValidationCheck(tc.baseurl)
+			r := UrlValidationCheck(&tc.baseurl)
 			assert.Equal(t, r, tc.expect)
 		})
 	}
