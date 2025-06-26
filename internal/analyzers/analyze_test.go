@@ -397,9 +397,33 @@ func Test_FindLinks(t *testing.T) {
 			isExternal: true,
 		},
 		{
+			name:      "Parsing a tag to get external link (link tag)",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "link", Attr: []html.Attribute{html.Attribute{Key: "href", Val: "https://www.lucytech.se"}}},
+			expected: models.LinksData{
+				Count: 1,
+				Links: []string{"https://www.lucytech.se"},
+			},
+			baseurl:    "https://www.home24.de",
+			isStream:   true,
+			isExternal: true,
+		},
+		{
 			name:      "Parsing a tag to get internal link",
 			tokenType: html.StartTagToken,
 			token:     html.Token{Data: "a", Attr: []html.Attribute{html.Attribute{Key: "href", Val: "https://www.lucytech.se"}}},
+			expected: models.LinksData{
+				Count: 1,
+				Links: []string{"https://www.lucytech.se"},
+			},
+			baseurl:    "https://www.lucytech.se",
+			isStream:   true,
+			isExternal: false,
+		},
+		{
+			name:      "Parsing a tag to get internal link (link tag)",
+			tokenType: html.StartTagToken,
+			token:     html.Token{Data: "link", Attr: []html.Attribute{html.Attribute{Key: "href", Val: "https://www.lucytech.se"}}},
 			expected: models.LinksData{
 				Count: 1,
 				Links: []string{"https://www.lucytech.se"},

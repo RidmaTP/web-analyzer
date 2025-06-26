@@ -185,7 +185,7 @@ func (a *BodyAnalyzer) FindHeaderCount(tokenType html.TokenType, token html.Toke
 func (a *BodyAnalyzer) FindLinks(tokenType html.TokenType, token html.Token, baseUrl string, linkJobQueue *chan string) error {
 	if tokenType == html.StartTagToken || tokenType == html.SelfClosingTagToken {
 		tokenData := token.Data
-		if tokenData == "a" {
+		if tokenData == "a" || tokenData == "link" {
 			for _, attr := range token.Attr {
 				if attr.Key == "href" {
 					if utils.IsExternalLink(attr.Val, baseUrl) {
