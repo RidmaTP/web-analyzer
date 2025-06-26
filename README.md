@@ -12,7 +12,7 @@ A web crawler application designed to scrape and analyze web page data, includin
 
 ## Running Instructions
 
-### Backend Server
+### Backend Server (Port : 8000)
 
 #### Using Docker Compose
 ```bash
@@ -25,7 +25,7 @@ cd cmd/server
 go run main.go
 ```
 
-### Frontend Client
+### Frontend Client (port : 5173)
 
 For the client application, navigate to the client repository ( https://github.com/RidmaTP/web-analyzer-fe ) and follow these instructions:
 
