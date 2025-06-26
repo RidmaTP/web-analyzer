@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/RidmaTP/web-analyzer/configs"
+	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/RidmaTP/web-analyzer/internal/api/handlers"
 	"github.com/RidmaTP/web-analyzer/internal/api/middleware"
 	"github.com/gin-contrib/cors"

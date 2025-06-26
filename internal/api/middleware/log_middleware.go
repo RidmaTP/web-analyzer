@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/RidmaTP/web-analyzer/configs"
+	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )

@@ -17,7 +17,7 @@ var (
 func LoadEnv() error {
 	var loadErr error
 	loadEnvOnce.Do(func() {
-		err := godotenv.Load("configs/.env")
+		err := godotenv.Load("internal/configs/.env")
 		if err != nil {
 			loadErr = err
 		}
