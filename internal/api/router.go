@@ -16,6 +16,7 @@ func Router(engine *gin.Engine) {
 	
 	group := engine.Group("/api/")
 	group.Use(middleware.LogMiddleware)
+	group.Use(middleware.RateLimitMiddleware())
 	routes(group)
 }
 
