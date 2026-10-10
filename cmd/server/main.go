@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/RidmaTP/web-analyzer/internal/api"
+	"github.com/RidmaTP/web-analyzer/internal/api/middleware"
+	"github.com/RidmaTP/web-analyzer/internal/configs"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,6 +13,7 @@ import (
 // port can be changed from configs/.env
 func main() {
 	r := gin.Default()
+	go middleware.CleanupUsers()
 
 	err := configs.LoadEnv()
 	if err !=nil{
